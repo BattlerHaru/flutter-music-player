@@ -26,43 +26,74 @@ class _PlayerPageState extends State<PlayerPage> {
     'img-cover': 'assets/album.png',
   };
 
-  // Temps
-  Duration _songDurationTemp;
-  final String _songCurrentTemp = '62.3'; // in seconds
+  Duration _songDurationTime;
+  Duration _songCurrentTime = new Duration(seconds: 0); // seconds for tests
+  String _songDurationText = '';
+  String _songCurrentText = '';
 
-  void _songDuration(Map song) {
-    final songTemp = song['duration'].toString().split(':');
-    print('------- length: ${songTemp.length} ---------');
-    // TODO realizar cambio de tiempo a solos minutos y segundos
-    if (songTemp.length == 4) {
-      print('------  Tiene 4 -----');
+  void _song(Map s) {
+    final songTemp = s['duration'].toString().split(':');
+
+    if (songTemp.length >= 5 || songTemp.length < 1) {
+      _songDurationTime = new Duration(
+        seconds: 1,
+      );
+      print('Error: time exceeded');
+    } else if (songTemp.length == 4) {
+      // ------  Days - Hours - Minutes - Seconds -----
+      _songDurationTime = new Duration(
+        days: (int.tryParse(songTemp[0]) is int) ? int.parse(songTemp[0]) : 0,
+        hours: (int.tryParse(songTemp[1]) is int) ? int.parse(songTemp[1]) : 0,
+        minutes:
+            (int.tryParse(songTemp[2]) is int) ? int.parse(songTemp[2]) : 0,
+        seconds:
+            (int.tryParse(songTemp[3]) is int) ? int.parse(songTemp[3]) : 0,
+      );
     } else if (songTemp.length == 3) {
-      // ------  Hours : Minutes : Seconds -----
-      _songDurationTemp = new Duration(
-        hours: int.parse(songTemp[0]),
-        minutes: int.parse(songTemp[1]),
-        seconds: int.parse(songTemp[2]),
+      // ------  Hours - Minutes - Seconds -----
+      _songDurationTime = new Duration(
+        hours: (int.tryParse(songTemp[0]) is int) ? int.parse(songTemp[0]) : 0,
+        minutes:
+            (int.tryParse(songTemp[1]) is int) ? int.parse(songTemp[1]) : 0,
+        seconds:
+            (int.tryParse(songTemp[2]) is int) ? int.parse(songTemp[2]) : 0,
       );
     } else if (songTemp.length == 2) {
-      // ------  Minutes : Seconds -----
-      _songDurationTemp = new Duration(
-        minutes: int.parse(songTemp[0]),
-        seconds: int.parse(songTemp[1]),
+      // ------  Minutes - Seconds -----
+      _songDurationTime = new Duration(
+        minutes:
+            (int.tryParse(songTemp[0]) is int) ? int.parse(songTemp[0]) : 0,
+        seconds:
+            (int.tryParse(songTemp[1]) is int) ? int.parse(songTemp[1]) : 0,
       );
     } else if (songTemp.length == 1) {
       // ------  Seconds -----
-      _songDurationTemp = new Duration(
-        seconds: int.parse(songTemp[0]),
+      _songDurationTime = new Duration(
+        seconds:
+            (int.tryParse(songTemp[0]) is int) ? int.parse(songTemp[0]) : 0,
       );
-    } else {
-      print('------ null | Error -----');
     }
+
+    _songDurationText =
+        '${_songDurationTime.inHours >= 1 ? (_songDurationTime.inHours.toString() + ':') : ''}' + // if more 1 hour
+            '${_songDurationTime.inMinutes.remainder(60) < 10 ? ('0') : ''}' +
+            '${_songDurationTime.inMinutes.remainder(60)}' +
+            ':' +
+            '${_songDurationTime.inSeconds.remainder(60) < 10 ? '0' : ''}' +
+            '${_songDurationTime.inSeconds.remainder(60)}';
+
+    _songCurrentText =
+        '${_songCurrentTime.inHours >= 1 ? (_songCurrentTime.inHours.toString() + ':') : ''}' + // if more 1 hour
+            '${_songCurrentTime.inMinutes.remainder(60) < 10 ? ('0') : ''}' +
+            '${_songCurrentTime.inMinutes.remainder(60)}' +
+            ':' +
+            '${_songCurrentTime.inSeconds.remainder(60) < 10 ? '0' : ''}' +
+            '${_songCurrentTime.inSeconds.remainder(60)}';
   }
-  // end temps
 
   @override
   Widget build(BuildContext context) {
-    _songDuration(song);
+    _song(song);
     return Scaffold(
       appBar: _appBar(),
       body: _body(),
@@ -78,7 +109,7 @@ class _PlayerPageState extends State<PlayerPage> {
         Column(
           children: <Widget>[
             Text(
-              song['artist'], // Song album
+              song['artist'],
               style: GoogleFonts.poppins(
                 color: textColor,
                 fontSize: 20,
@@ -88,7 +119,7 @@ class _PlayerPageState extends State<PlayerPage> {
             ),
             SizedBox(height: 10),
             Text(
-              song['title'], // Song title
+              song['title'],
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
                 color: textColor,
@@ -110,14 +141,19 @@ class _PlayerPageState extends State<PlayerPage> {
                   width: 350,
                   height: 350,
                   placeholder: AssetImage('assets/no-image.jpg'),
-                  image: AssetImage(song['img-cover']), // Song album cover
+                  image: AssetImage(song['img-cover']),
                 ),
               ),
             ),
             SleekCircularSlider(
               min: 0,
-              max: _songDurationTemp.inSeconds.roundToDouble(), // Song duration
-              initialValue: double.parse(_songCurrentTemp),
+              max: _songDurationTime.inSeconds >= 1
+                  ? _songDurationTime.inSeconds.roundToDouble()
+                  : 60.0,
+              initialValue:
+                  _songCurrentTime.inSeconds <= _songDurationTime.inSeconds
+                      ? _songCurrentTime.inSeconds.roundToDouble()
+                      : 0,
               appearance: CircularSliderAppearance(
                 size: 400,
                 counterClockwise: true,
@@ -140,12 +176,21 @@ class _PlayerPageState extends State<PlayerPage> {
               ),
               onChange: (double value) {
                 // callback providing a value while its being changed (with a pan gesture)
+                setState(() {
+                  _songCurrentTime = Duration(seconds: value.toInt());
+                });
               },
               onChangeStart: (double startValue) {
                 // callback providing a starting value (when a pan gesture starts)
+                setState(() {
+                  _songCurrentTime = Duration(seconds: startValue.toInt());
+                });
               },
               onChangeEnd: (double endValue) {
                 // callback providing an ending value (when a pan gesture ends)
+                setState(() {
+                  _songCurrentTime = Duration(seconds: endValue.toInt());
+                });
               },
               // innerWidget: (double value) {
               //   // use your custom widget inside the slider (gets a slider value from the callback)
@@ -159,7 +204,8 @@ class _PlayerPageState extends State<PlayerPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               Text(
-                '01.05', // Song current time
+                // Current Time
+                _songCurrentText,
                 style: GoogleFonts.poppins(
                   color: textColor,
                   fontSize: 15,
@@ -167,12 +213,14 @@ class _PlayerPageState extends State<PlayerPage> {
                 ),
               ),
               Text(
-                '${_songDurationTemp.inMinutes.remainder(60)}:${_songDurationTemp.inSeconds.remainder(60)}',
+                // Duration Time
+                _songDurationText,
                 style: GoogleFonts.poppins(
                   color: textColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
